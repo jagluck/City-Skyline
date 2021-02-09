@@ -13,6 +13,8 @@ var svg;
 var buildings = []
 const lineGenerator = d3.line();
 
+const sunDirrection = getSunDirrection();
+
 const chartHeight = 600;
 const chartWidth = 600;
 
@@ -30,12 +32,24 @@ const buildingMinDepth = 20;
 
 const maxDraw = 30;
 
+var xScale = d3.scaleLinear()
+             //accepts
+             .domain([0, 100])
+             //outputs
+             .range([0, chartWidth]);
+
+var yScale = d3.scaleLinear()
+             //accepts
+             .domain([0, 100])
+             //outputs
+             .range([0, h=chartHeight]); 
+
 ////////////////
 // draw image //
 ////////////////
 
 setUpImage();
-drawBuildings(30);
+drawBuildings(200);
 drawVanishingPoint();
 
 ///////////////
@@ -86,7 +100,7 @@ function drawBuilding(buildingColor, buildingWidth, buildingHeight, buildingDept
 	
 	// calculate front square
 	var X1 = randomIntFromInterval(0, (chartWidth - buildingWidth));
-  	var Y1 = randomIntFromInterval((vanishingPointX - buildingHeight), (chartHeight - buildingHeight));
+  	var Y1 = randomIntFromInterval((vanishingPointY - buildingHeight), (chartHeight - buildingHeight));
 
   	var X2 = X1 + buildingWidth;
   	var Y2 = Y1 + buildingHeight;
@@ -95,18 +109,47 @@ function drawBuilding(buildingColor, buildingWidth, buildingHeight, buildingDept
 
 	var thisBuilding = [];
 
-	if (X2 < vanishingPointX) {
+	if (X1 < vanishingPointX && X2 > vanishingPointX) {
+		if (buildingDepth > buildingWidth){
+			buildingDepth = buildingWidth;
+			[X3, X4, Y3, Y4] = calculatePoints(X1, Y1, X2, Y2, buildingWidth, buildingHeight, buildingDepth);
+		}
+		if (Y1 > vanishingPointY){
+			while (Y3 < vanishingPointY && buildingDepth > 1) {
+				buildingDepth = Math.floor(buildingDepth/2);
+				[X3, X4, Y3, Y4] = calculatePoints(X1, Y1, X2, Y2, buildingWidth, buildingHeight, buildingDepth);
+			}
+		} else if (Y1 < vanishingPointY){
+			while (Y3 > vanishingPointY && buildingDepth > 1) {
+				buildingDepth = Math.floor(buildingDepth/2);
+				[X3, X4, Y3, Y4] = calculatePoints(X1, Y1, X2, Y2, buildingWidth, buildingHeight, buildingDepth);
+			}
+		}
+	}else if (X2 < vanishingPointX) {
 		// || ((Y3 - vanishingPointY) < 20)
 		while ((X4 - X2) > maxDraw) {
 			buildingDepth = Math.floor(buildingDepth/2);
 			[X3, X4, Y3, Y4] = calculatePoints(X1, Y1, X2, Y2, buildingWidth, buildingHeight, buildingDepth);
 		}
+		while (X4 > vanishingPointX){
+			buildingDepth = Math.floor(buildingDepth/2);
+			[X3, X4, Y3, Y4] = calculatePoints(X1, Y1, X2, Y2, buildingWidth, buildingHeight, buildingDepth);
+		}
 	} else if (X1 > vanishingPointX) {
 		//|| ((Y3 - vanishingPointY) < 20)
+
 		while ((X2 - X4) > maxDraw) {
 			buildingDepth = Math.floor(buildingDepth/2);
 			[X3, X4, Y3, Y4] = calculatePoints(X1, Y1, X2, Y2, buildingWidth, buildingHeight, buildingDepth);
 		}
+		while (X3 < vanishingPointX){
+			buildingDepth = Math.floor(buildingDepth/2);
+			[X3, X4, Y3, Y4] = calculatePoints(X1, Y1, X2, Y2, buildingWidth, buildingHeight, buildingDepth);
+		}
+	}
+	while (X4 - X3 < (buildingMinWidth - 5) && buildingDepth > 1){
+		buildingDepth = Math.floor(buildingDepth/2);
+		[X3, X4, Y3, Y4] = calculatePoints(X1, Y1, X2, Y2, buildingWidth, buildingHeight, buildingDepth);
 	}
 	
 	var buildingFrontPoints = [
@@ -125,32 +168,75 @@ function drawBuilding(buildingColor, buildingWidth, buildingHeight, buildingDept
 	    [X1, Y1],
 	];	
 
-	thisBuilding = drawShape(buildingTopPoints, buildingColor, thisBuilding);
-	// slightly darker front side
-	thisBuilding = drawShape(buildingFrontPoints, shadeColor(buildingColor, -10), thisBuilding);
-	
+	var buildingSide;
+	var buildingSidePoints;
 	if (X1 > vanishingPointX) {
-	  	var buildingSidePoints = [
+	  	buildingSidePoints = [
 		    [X1, Y2],
 		    [X3, Y4],
 		    [X3, Y3],
 		    [X1, Y1],
 		    [X1, Y2],
 		];	
-		thisBuilding = drawShape(buildingSidePoints, buildingColor, thisBuilding);
+		buildingSide = 'left';
 
 	} else if (X2 < vanishingPointX){
-	  	var buildingSidePoints = [
+	  	buildingSidePoints = [
 		    [X2, Y2],
 		    [X2, Y1],
 		    [X4, Y3],
 		    [X4, Y4],
 		    [X2, Y2],
 		];	
-		thisBuilding = drawShape(buildingSidePoints, buildingColor, thisBuilding);
+		buildingSide = 'right'
 	}
 
+	thisBuilding = drawSides(thisBuilding, buildingFrontPoints, buildingTopPoints, buildingSidePoints, buildingSide, buildingColor, Y1);
+	
 	buildings.push([Y2, thisBuilding]);
+}
+
+function drawSides(thisBuilding, buildingFrontPoints, buildingTopPoints, buildingSidePoints, buildingSide, buildingColor, Y1){
+	
+	var sideColor = buildingColor;
+	var topColor = buildingColor;
+	var frontColor = buildingColor;
+
+	if (sunDirrection === 'front'){
+		frontColor = shadeColor(buildingColor, 50);
+	} else if (sunDirrection === 'right'){
+		if (buildingSide === 'right'){
+			sideColor = shadeColor(buildingColor, 50);
+		}else{
+			sideColor = shadeColor(buildingColor, -50);
+		}
+	} else if (sunDirrection === 'left'){
+		if (buildingSide === 'left'){
+			sideColor = shadeColor(buildingColor, 50);
+		}else{
+			sideColor = shadeColor(buildingColor, -50);
+		}
+	} else if (sunDirrection === 'top'){
+		topColor = shadeColor(buildingColor, 50);
+	} else if (sunDirrection === 'back'){
+		frontColor = shadeColor(buildingColor, -50);
+	}
+
+	// create sides
+	if (Y1 <= vanishingPointY){
+		thisBuilding = drawShape(buildingFrontPoints, frontColor, thisBuilding);
+		if (buildingSidePoints){
+			thisBuilding = drawShape(buildingSidePoints, sideColor, thisBuilding);
+		}
+	} else{
+		if (buildingSidePoints){
+			thisBuilding = drawShape(buildingSidePoints, sideColor, thisBuilding);
+		}
+		thisBuilding = drawShape(buildingTopPoints, topColor, thisBuilding);
+		thisBuilding = drawShape(buildingFrontPoints, frontColor, thisBuilding);
+	}
+
+	return thisBuilding;
 }
 
 function calculatePoints(X1, Y1, X2, Y2, buildingWidth, buildingHeight, buildingDepth){
@@ -222,8 +308,13 @@ function drawBuildings(numBuildings) {
 			               .attr("stroke-linecap", "round")
 			               .style("stroke-linejoin", "round")
 					  	   .attr('fill', buildings[i][1][j][1]);
+					  	   // .attr("transform", "scale(" + (buildings[i][0]/(4 * vanishingPointY)).toString() + ")"); 
 		}
 	}
+
+  // .x(function(d) { return xScale(d[0]) })
+  //                   	   .y(function(d) { return yScale(d[1]) })
+	
 	
 }
 
@@ -278,6 +369,13 @@ function shadeColor(color, percent) {
     var BB = ((B.toString(16).length==1)?"0"+B.toString(16):B.toString(16));
 
     return "#"+RR+GG+BB;
+}
+
+
+function getSunDirrection(){
+	var directions = ['left', 'right', 'top', 'front', 'back'];
+ 	var direction = directions[Math.floor(Math.random() * directions.length)];
+ 	return direction;
 }
 
 // source: https://simplicable.com/new/pastel-color
