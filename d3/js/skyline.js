@@ -77,10 +77,10 @@ function drawBuilding(buildingColor, buildingWidth, buildingHeight, buildingDept
 ////////////////////////////////////
 //         Building Sides         //
 //                                //
-//         o------F-------o	      //
+//         o------F-------o       //
 //        E              G|       //
 //       /              / H       //
-//      o-------B------o  |	      //
+//      o-------B------o  |       //
 //      |              |  o       //
 //      A              C I        //
 //      |              |/         //
