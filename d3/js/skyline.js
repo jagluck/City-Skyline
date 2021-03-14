@@ -49,14 +49,14 @@ var yScale = d3.scaleLinear()
 ////////////////
 
 setUpImage();
-drawBuildings(200);
+drawBuildings(10);
 drawVanishingPoint();
 
 ///////////////
 // functions //
 ///////////////
 
-function drawBuilding(buildingColor, buildingWidth, buildingHeight, buildingDepth) { 
+function createBuilding(buildingColor, buildingWidth, buildingHeight, buildingDepth) { 
 
 	// we need to project 3 dimensions to 2
 
@@ -98,17 +98,89 @@ function drawBuilding(buildingColor, buildingWidth, buildingHeight, buildingDept
 	//                                //
 	////////////////////////////////////
 	
-	// calculate front square
-	var X1 = randomIntFromInterval(0, (chartWidth - buildingWidth));
-  	var Y1 = randomIntFromInterval((vanishingPointY - buildingHeight), (chartHeight - buildingHeight));
-
-  	var X2 = X1 + buildingWidth;
-  	var Y2 = Y1 + buildingHeight;
-
-  	var [X3, X4, Y3, Y4] = calculatePoints(X1, Y1, X2, Y2, buildingWidth, buildingHeight, buildingDepth);
+	var isBuildingAllowed = false;
+	while(isBuildingAllowed == false){
+		// calculate front square
+		var X1 = randomIntFromInterval(0, (chartWidth - buildingWidth));
+	  	var Y1 = randomIntFromInterval((vanishingPointY - buildingHeight), (chartHeight - buildingHeight));
+	
+	  	var X2 = X1 + buildingWidth;
+	  	var Y2 = Y1 + buildingHeight;
+	
+	  	var [X3, X4, Y3, Y4] = calculatePoints(X1, Y1, X2, Y2, buildingWidth, buildingHeight, buildingDepth);
+	
+		var buildingPoints = [X1, X2, X3, X4, Y1, Y2, Y3, Y4];
+		[buildingPoints, buildingDepth] = adjustPoints(buildingPoints, buildingWidth, buildingDepth, buildingHeight);
+			
+		isBuildingAllowed = determineIfBuildingAllowed();
+	}
 
 	var thisBuilding = [];
+	thisBuilding = createSides(thisBuilding, buildingPoints, buildingColor, Y1);
+	
+	buildings.push(thisBuilding);
+}
 
+function getBuildingSidePoints(buildingPoints) {
+	var [X1, X2, X3, X4, Y1, Y2, Y3, Y4] = buildingPoints;
+	var buildingFrontPoints = [
+	    [X2, Y1],
+	    [X2, Y2],
+	    [X1, Y2],
+	    [X1, Y1],
+	    [X2, Y1],
+	];	
+	
+  	var buildingTopPoints = [
+	    [X1, Y1],
+	    [X3, Y3],
+	    [X4, Y3],
+	    [X2, Y1],
+	    [X1, Y1],
+	];	
+	var [buildingSidePoints, buildingSide] = setBuildingSidePoints(buildingPoints);
+	return [buildingFrontPoints, buildingTopPoints, buildingSidePoints,  buildingSide];
+}
+
+function determineIfBuildingAllowed(){
+	var isAllowed = true;
+	for (var i = 0; i < buildings.length; i++) {
+	    console.log(buildings[i]);
+	    console.log("----");
+	}
+	return isAllowed;
+}
+
+function setBuildingSidePoints(buildingPoints){
+	var [X1, X2, X3, X4, Y1, Y2, Y3, Y4] = buildingPoints;
+	var buildingSide;
+	var buildingSidePoints;
+	if (X1 > vanishingPointX) {
+	  	buildingSidePoints = [
+		    [X1, Y2],
+		    [X3, Y4],
+		    [X3, Y3],
+		    [X1, Y1],
+		    [X1, Y2],
+		];	
+		buildingSide = 'left';
+
+	} else if (X2 < vanishingPointX){
+	  	buildingSidePoints = [
+		    [X2, Y2],
+		    [X2, Y1],
+		    [X4, Y3],
+		    [X4, Y4],
+		    [X2, Y2],
+		];	
+		buildingSide = 'right'
+	}
+
+	return [buildingSidePoints, buildingSide];
+}
+
+function adjustPoints(buildingPoints, buildingWidth, buildingDepth, buildingHeight) {
+	var [X1, X2, X3, X4, Y1, Y2, Y3, Y4] = buildingPoints;
 	if (X1 < vanishingPointX && X2 > vanishingPointX) {
 		if (buildingDepth > buildingWidth){
 			buildingDepth = buildingWidth;
@@ -151,53 +223,13 @@ function drawBuilding(buildingColor, buildingWidth, buildingHeight, buildingDept
 		buildingDepth = Math.floor(buildingDepth/2);
 		[X3, X4, Y3, Y4] = calculatePoints(X1, Y1, X2, Y2, buildingWidth, buildingHeight, buildingDepth);
 	}
-	
-	var buildingFrontPoints = [
-	    [X2, Y1],
-	    [X2, Y2],
-	    [X1, Y2],
-	    [X1, Y1],
-	    [X2, Y1],
-	];	
-
-  	var buildingTopPoints = [
-	    [X1, Y1],
-	    [X3, Y3],
-	    [X4, Y3],
-	    [X2, Y1],
-	    [X1, Y1],
-	];	
-
-	var buildingSide;
-	var buildingSidePoints;
-	if (X1 > vanishingPointX) {
-	  	buildingSidePoints = [
-		    [X1, Y2],
-		    [X3, Y4],
-		    [X3, Y3],
-		    [X1, Y1],
-		    [X1, Y2],
-		];	
-		buildingSide = 'left';
-
-	} else if (X2 < vanishingPointX){
-	  	buildingSidePoints = [
-		    [X2, Y2],
-		    [X2, Y1],
-		    [X4, Y3],
-		    [X4, Y4],
-		    [X2, Y2],
-		];	
-		buildingSide = 'right'
-	}
-
-	thisBuilding = drawSides(thisBuilding, buildingFrontPoints, buildingTopPoints, buildingSidePoints, buildingSide, buildingColor, Y1);
-	
-	buildings.push([Y2, thisBuilding]);
+	var newBuildingPoints = [X1, X2, X3, X4, Y1, Y2, Y3, Y4];
+	return [newBuildingPoints, buildingDepth]
 }
 
-function drawSides(thisBuilding, buildingFrontPoints, buildingTopPoints, buildingSidePoints, buildingSide, buildingColor, Y1){
+function createSides(thisBuilding, buildingPoints, buildingColor, Y1){
 	
+	var [buildingFrontPoints, buildingTopPoints, buildingSidePoints, buildingSide] = getBuildingSidePoints(buildingPoints);
 	var sideColor = buildingColor;
 	var topColor = buildingColor;
 	var frontColor = buildingColor;
@@ -223,18 +255,27 @@ function drawSides(thisBuilding, buildingFrontPoints, buildingTopPoints, buildin
 	}
 
 	// create sides
+	thisBuildingSides = [];
+	thisBuildingSideColors = [];
 	if (Y1 <= vanishingPointY){
-		thisBuilding = drawShape(buildingFrontPoints, frontColor, thisBuilding);
+		thisBuildingSides.push(createShape(buildingFrontPoints));
+		thisBuildingSideColors.push(frontColor);
 		if (buildingSidePoints){
-			thisBuilding = drawShape(buildingSidePoints, sideColor, thisBuilding);
+			thisBuildingSides.push(createShape(buildingSidePoints));
+			thisBuildingSideColors.push(sideColor);
 		}
 	} else{
 		if (buildingSidePoints){
-			thisBuilding = drawShape(buildingSidePoints, sideColor, thisBuilding);
+			thisBuildingSides.push(createShape(buildingSidePoints));
+			thisBuildingSideColors.push(sideColor);
 		}
-		thisBuilding = drawShape(buildingTopPoints, topColor, thisBuilding);
-		thisBuilding = drawShape(buildingFrontPoints, frontColor, thisBuilding);
+		thisBuildingSides.push(createShape(buildingTopPoints));
+		thisBuildingSideColors.push(topColor);
+		thisBuildingSides.push(createShape(buildingFrontPoints));
+		thisBuildingSideColors.push(frontColor);
 	}
+
+	thisBuilding = [thisBuildingSides, thisBuildingSideColors, buildingPoints];
 
 	return thisBuilding;
 }
@@ -260,7 +301,7 @@ function calculatePoints(X1, Y1, X2, Y2, buildingWidth, buildingHeight, building
 	var GB = vanishingPointY - (vanishingPointX * (Y1 - vanishingPointY)/(X2 - vanishingPointX));
 
 	// x = (y - b)/m
-	var X4 = (Y3 - GB)/GM;
+	var X4 = Math.round((Y3 - GB)/GM);
 
 	if (X1 > vanishingPointX) {
 		// m = (y₂ - y₁)/(x₂ - x₁)
@@ -268,14 +309,14 @@ function calculatePoints(X1, Y1, X2, Y2, buildingWidth, buildingHeight, building
   		// b = y₁ - x₁(y₂ - y₁)/(x₂ - x₁)
   		var IB = vanishingPointY - (vanishingPointX * (Y2 - vanishingPointY)/(X1 - vanishingPointX));
   		// y = mx + b
-  		var Y4 = (IM * X3) + IB;
+  		var Y4 = Math.round((IM * X3) + IB);
 	} else if (X2 < vanishingPointX){
 		// m = (y₂ - y₁)/(x₂ - x₁)
   		var IM = (Y2 - vanishingPointY)/(X1 - vanishingPointX);
   		// b = y₁ - x₁(y₂ - y₁)/(x₂ - x₁)
   		var IB = vanishingPointY - (vanishingPointX * (Y2 - vanishingPointY)/(X1 - vanishingPointX));
   		// y = mx + b
-  		var Y4 = (IM * X3) + IB;
+  		var Y4 = Math.round((IM * X3) + IB);
 	}
 
 	return [X3, X4, Y3, Y4];
@@ -289,7 +330,7 @@ function drawBuildings(numBuildings) {
 		var buildingWidth = randomIntFromInterval(buildingMinWidth, buildingMaxWidth);
 		var buildingHeight = randomIntFromInterval(buildingMinHeight, buildingMaxHeight);
 		var buildingDepth = randomIntFromInterval(buildingMinDepth, buildingMaxDepth);
-		drawBuilding(buildingColor, buildingWidth, buildingHeight, buildingDepth);
+		createBuilding(buildingColor, buildingWidth, buildingHeight, buildingDepth);
 	}
 
 	buildings.sort(function(a,b) {
@@ -299,7 +340,7 @@ function drawBuildings(numBuildings) {
 	for (i = 0; i < buildings.length; i++) {
 		var j;
 		for (j = 0; j < buildings[i][1].length; j++) {
-			var thisBuilding = buildings[i][1][j][0];
+			var thisBuilding = buildings[i][0][j];
 			var freeline = svg.append("path")
 			               .attr("class", "freeline")
 			               .attr("d", function(d) { return thisBuilding; })
@@ -307,7 +348,7 @@ function drawBuildings(numBuildings) {
 			               .attr("stroke-width", "1")
 			               .attr("stroke-linecap", "round")
 			               .style("stroke-linejoin", "round")
-					  	   .attr('fill', buildings[i][1][j][1]);
+					  	   .attr('fill', buildings[i][1][j]);
 					  	   // .attr("transform", "scale(" + (buildings[i][0]/(4 * vanishingPointY)).toString() + ")"); 
 		}
 	}
@@ -318,10 +359,9 @@ function drawBuildings(numBuildings) {
 	
 }
 
-function drawShape(shapePoints, shapeColor, thisBuilding) { 
+function createShape(shapePoints, shapeColor, thisBuilding) { 
 	var shapePathData = lineGenerator(shapePoints);
-	thisBuilding.push([shapePathData,shapeColor]);
-	return thisBuilding;
+	return shapePathData;
 }
 
 function setUpImage() { 
